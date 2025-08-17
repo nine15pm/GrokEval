@@ -5,6 +5,7 @@ __pycache__/
 
 # VS Code
 .vscode/
+CLAUDE.md
 
 # Browser data and debugging
 browser_data/
