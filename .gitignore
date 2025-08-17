@@ -5,3 +5,12 @@ __pycache__/
 
 # VS Code
 .vscode/
+
+# Browser data and debugging
+browser_data/
+chrome_debug_profile/
+
+# Results and runtime files
+results*.csv
+*.wav
+*.tmp

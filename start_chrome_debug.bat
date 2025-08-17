@@ -1,0 +1,6 @@
+@echo off
+echo Starting Chrome with remote debugging...
+echo Using Chrome at: C:\Program Files\Google\Chrome\Application\chrome.exe
+echo Creating separate Chrome profile for debugging...
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="%~dp0chrome_debug_profile" --no-first-run --no-default-browser-check
+pause
