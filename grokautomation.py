@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-GrokEval v0 - End-to-end automation for Grok voice testing
+GrokAutomation v0 - End-to-end automation for Grok voice testing
 Combines CDP connection, voice button detection, TTS streaming, and response capture
 """
 
 import asyncio
 import tempfile
 import os
-import csv
 import pandas as pd
 from playwright.async_api import async_playwright
 import edge_tts
@@ -17,7 +16,79 @@ import json
 from datetime import datetime
 import argparse
 
-class GrokEvaluator:
+class GrokAutomator:
+    # Selector constants
+    VOICE_SELECTORS = [
+        "[aria-label*='voice']",
+        "[aria-label*='Voice']", 
+        "[data-testid*='voice']",
+        "button[title*='voice']",
+        "button[title*='Voice']",
+        ".voice-button",
+        "[class*='voice']"
+    ]
+    
+    TEXT_INPUT_SELECTORS = [
+        "textarea[placeholder*='Ask Grok']",
+        "textarea[placeholder*='Message']", 
+        "input[placeholder*='Ask Grok']",
+        "input[placeholder*='Message']",
+        "[contenteditable='true']",
+        "textarea",
+        "input[type='text']",
+        "[role='textbox']"
+    ]
+    
+    RESPONSE_SELECTORS = [
+        ".response-content-markdown",
+        ".message-bubble",
+        "[class*='message-bubble']",
+        "[class*='response-content']",
+        ".message.assistant",
+        "[class*='message'][class*='assistant']",
+        "[data-role='assistant']",
+        ".response",
+        "[class*='response']"
+    ]
+    
+    NEW_CHAT_SELECTORS = [
+        # Common patterns for new chat buttons
+        "[aria-label*='New chat']",
+        "[aria-label*='New conversation']",
+        "[aria-label*='Start new']",
+        "[aria-label*='new chat']",
+        "[aria-label*='new conversation']",
+        "button[title*='New chat']",
+        "button[title*='New conversation']",
+        "button[title*='new chat']",
+        "[data-testid*='new-chat']",
+        "[data-testid*='new-conversation']",
+        "[data-testid*='newchat']",
+        # Class-based selectors
+        ".new-chat-button",
+        ".new-conversation-button",
+        ".newchat-button",
+        "[class*='new-chat']",
+        "[class*='new-conversation']",
+        "[class*='newchat']",
+        # Text-based selectors
+        "button:has-text('New chat')",
+        "button:has-text('New Chat')",
+        "button:has-text('New')",
+        "button:has-text('Start')",
+        "[role='button']:has-text('New')",
+        "[role='button']:has-text('Start')",
+        # Plus icon buttons (common for new chat)
+        "button[aria-label*='+']",
+        "button:has([data-icon='plus'])",
+        "button svg[data-icon='plus']",
+        # Generic buttons that might be new chat
+        "button[class*='primary']",
+        "button[class*='compose']",
+        "a[href='/']",
+        "a[href='https://grok.com']"
+    ]
+
     def __init__(self):
         self.browser = None
         self.grok_page = None
@@ -32,7 +103,13 @@ class GrokEvaluator:
             "response_timeout": 90,
             "tts_voice": "en-US-JennyNeural",
             "audio_wait_seconds": 2,
-            "new_conversation_wait": 3
+            "new_conversation_wait": 3,
+            # Magic number constants
+            "min_response_length": 10,
+            "required_stable_checks": 3,
+            "progress_bar_length": 20,
+            "stabilization_check_interval": 1.0,
+            "element_search_interval": 0.5
         }
         
         try:
@@ -48,6 +125,28 @@ class GrokEvaluator:
             print(f"Error loading config.json: {e}, using defaults")
         
         return default_config
+    
+    async def find_clickable_element(self, selectors, description="element"):
+        """Helper method to find and return the first clickable element from selector list"""
+        print(f"Looking for {description}...")
+        
+        for selector in selectors:
+            try:
+                count = await self.grok_page.locator(selector).count()
+                if count > 0:
+                    element = self.grok_page.locator(selector).first
+                    is_visible = await element.is_visible()
+                    is_enabled = await element.is_enabled()
+                    
+                    if is_visible and is_enabled:
+                        print(f"Found {description}: {selector}")
+                        return element
+                        
+            except Exception as e:
+                print(f"Error testing {description} selector {selector}: {e}")
+        
+        print(f"{description.capitalize()} not found")
+        return None
     
     def load_existing_results(self, results_file):
         """Load existing results to enable resume functionality"""
@@ -107,34 +206,11 @@ class GrokEvaluator:
     
     async def find_voice_button(self):
         """Find and click the voice button to enable voice mode"""
-        voice_selectors = [
-            "[aria-label*='voice']",
-            "[aria-label*='Voice']", 
-            "[data-testid*='voice']",
-            "button[title*='voice']",
-            "button[title*='Voice']",
-            ".voice-button",
-            "[class*='voice']"
-        ]
-        
-        print("Looking for voice button...")
-        
-        for selector in voice_selectors:
-            try:
-                count = await self.grok_page.locator(selector).count()
-                if count > 0:
-                    element = self.grok_page.locator(selector).first
-                    is_visible = await element.is_visible()
-                    is_enabled = await element.is_enabled()
-                    
-                    if is_visible and is_enabled:
-                        print(f"Found voice button: {selector}")
-                        await element.click()
-                        await asyncio.sleep(self.config["audio_wait_seconds"])  # Wait for voice mode to activate
-                        return True
-                        
-            except Exception as e:
-                print(f"Error testing voice selector {selector}: {e}")
+        element = await self.find_clickable_element(self.VOICE_SELECTORS, "voice button")
+        if element:
+            await element.click()
+            await asyncio.sleep(self.config["audio_wait_seconds"])
+            return True
         
         print("Voice button not found - trying text input instead")
         return False
@@ -173,46 +249,36 @@ class GrokEvaluator:
                 os.unlink(tmp_path)
     
     async def send_text_input(self, text):
-        """Fallback: send text input directly (from test_grok_input.py)"""
-        input_selectors = [
-            "textarea[placeholder*='Ask Grok']",
-            "textarea[placeholder*='Message']", 
-            "input[placeholder*='Ask Grok']",
-            "input[placeholder*='Message']",
-            "[contenteditable='true']",
-            "textarea",
-            "input[type='text']",
-            "[role='textbox']"
-        ]
-        
-        print("Looking for text input element...")
-        
-        for selector in input_selectors:
-            try:
-                count = await self.grok_page.locator(selector).count()
-                if count > 0:
-                    element = self.grok_page.locator(selector).first
-                    is_visible = await element.is_visible()
-                    is_enabled = await element.is_enabled()
-                    
-                    if is_visible and is_enabled:
-                        print(f"Using input element: {selector}")
-                        await element.click()
-                        await asyncio.sleep(0.5)
-                        await element.fill("")
-                        await asyncio.sleep(0.5)
-                        await element.type(text, delay=50)
-                        await asyncio.sleep(1)
-                        
-                        # Submit the message
-                        await self.grok_page.keyboard.press("Enter")
-                        return True
-                        
-            except Exception as e:
-                print(f"Error with selector {selector}: {e}")
+        """Fallback: send text input directly"""
+        element = await self.find_clickable_element(self.TEXT_INPUT_SELECTORS, "text input element")
+        if element:
+            await element.click()
+            await asyncio.sleep(0.5)
+            await element.fill("")
+            await asyncio.sleep(0.5)
+            await element.type(text, delay=50)
+            await asyncio.sleep(1)
+            
+            # Submit the message
+            await self.grok_page.keyboard.press("Enter")
+            return True
         
         print("No suitable input element found")
         return False
+    
+    async def get_latest_response_text(self):
+        """Helper method to extract latest response text"""
+        for selector in self.RESPONSE_SELECTORS:
+            try:
+                elements = await self.grok_page.locator(selector).all()
+                if elements:
+                    last_response = elements[-1]
+                    text = await last_response.inner_text()
+                    if text.strip():
+                        return text
+            except Exception:
+                continue
+        return ""
     
     async def wait_for_response(self, timeout=None):
         """Wait for Grok text response to appear and stabilize"""
@@ -220,40 +286,19 @@ class GrokEvaluator:
             timeout = self.config["response_timeout"]
         print("Waiting for Grok response...")
         
-        # Response selectors to monitor
-        response_selectors = [
-            ".response-content-markdown",
-            ".message-bubble",
-            "[class*='message-bubble']",
-            "[class*='response-content']",
-            ".message.assistant",
-            "[class*='message'][class*='assistant']",
-            "[data-role='assistant']",
-            ".response",
-            "[class*='response']"
-        ]
-        
         try:
             # Wait for initial response to appear
             response_found = False
             start_time = asyncio.get_event_loop().time()
             
             while not response_found and (asyncio.get_event_loop().time() - start_time) < timeout:
-                for selector in response_selectors:
-                    try:
-                        elements = await self.grok_page.locator(selector).all()
-                        if elements:
-                            last_response = elements[-1]
-                            response_text = await last_response.inner_text()
-                            if response_text.strip() and len(response_text.strip()) > 10:
-                                print(f"Response detected with {selector}")
-                                response_found = True
-                                break
-                    except Exception:
-                        continue
+                response_text = await self.get_latest_response_text()
+                if response_text and len(response_text.strip()) > self.config["min_response_length"]:
+                    print(f"Response detected")
+                    response_found = True
+                    break
                 
-                if not response_found:
-                    await asyncio.sleep(0.5)
+                await asyncio.sleep(self.config["element_search_interval"])
             
             if not response_found:
                 print("No response detected within timeout")
@@ -263,25 +308,13 @@ class GrokEvaluator:
             print("Monitoring text stabilization...")
             last_text = ""
             stable_count = 0
-            required_stable_checks = 3  # Number of consecutive stable checks needed
+            required_stable_checks = self.config["required_stable_checks"]
             
             while stable_count < required_stable_checks:
-                current_text = ""
-                
-                # Get current response text
-                for selector in response_selectors:
-                    try:
-                        elements = await self.grok_page.locator(selector).all()
-                        if elements:
-                            last_response = elements[-1]
-                            current_text = await last_response.inner_text()
-                            if current_text.strip():
-                                break
-                    except Exception:
-                        continue
+                current_text = await self.get_latest_response_text()
                 
                 # Check if text has stabilized
-                if current_text == last_text and len(current_text.strip()) > 10:
+                if current_text == last_text and len(current_text.strip()) > self.config["min_response_length"]:
                     stable_count += 1
                     print(f"Text stable ({stable_count}/{required_stable_checks})")
                 else:
@@ -290,7 +323,7 @@ class GrokEvaluator:
                         print(f"Text growing: {len(current_text)} chars")
                 
                 last_text = current_text
-                await asyncio.sleep(1)  # Check every second
+                await asyncio.sleep(self.config["stabilization_check_interval"])
             
             print(f"Response stabilized! Captured {len(last_text)} characters")
             print(f"Preview: {last_text[:100]}...")
@@ -308,47 +341,8 @@ class GrokEvaluator:
         current_url = self.grok_page.url
         print(f"Current URL: {current_url}")
         
-        # Enhanced selectors for new chat/conversation buttons
-        new_chat_selectors = [
-            # Common patterns for new chat buttons
-            "[aria-label*='New chat']",
-            "[aria-label*='New conversation']",
-            "[aria-label*='Start new']",
-            "[aria-label*='new chat']",
-            "[aria-label*='new conversation']",
-            "button[title*='New chat']",
-            "button[title*='New conversation']",
-            "button[title*='new chat']",
-            "[data-testid*='new-chat']",
-            "[data-testid*='new-conversation']",
-            "[data-testid*='newchat']",
-            # Class-based selectors
-            ".new-chat-button",
-            ".new-conversation-button",
-            ".newchat-button",
-            "[class*='new-chat']",
-            "[class*='new-conversation']",
-            "[class*='newchat']",
-            # Text-based selectors
-            "button:has-text('New chat')",
-            "button:has-text('New Chat')",
-            "button:has-text('New')",
-            "button:has-text('Start')",
-            "[role='button']:has-text('New')",
-            "[role='button']:has-text('Start')",
-            # Plus icon buttons (common for new chat)
-            "button[aria-label*='+']",
-            "button:has([data-icon='plus'])",
-            "button svg[data-icon='plus']",
-            # Generic buttons that might be new chat
-            "button[class*='primary']",
-            "button[class*='compose']",
-            "a[href='/']",
-            "a[href='https://grok.com']"
-        ]
-        
         # Try to find and click new chat button
-        for selector in new_chat_selectors:
+        for selector in self.NEW_CHAT_SELECTORS:
             try:
                 elements = await self.grok_page.locator(selector).all()
                 if elements:
@@ -378,9 +372,11 @@ class GrokEvaluator:
                                     return True
                                     
                         except Exception as e:
+                            print(f"Error clicking element {selector}: {e}")
                             continue
                             
             except Exception as e:
+                print(f"Error processing selector {selector}: {e}")
                 continue
         
         # Alternative: navigate directly to main grok page
@@ -445,9 +441,9 @@ class GrokEvaluator:
             print(f"Error processing prompt {prompt_id}: {e}")
             return {"id": prompt_id, "prompt": prompt_text, "grok_reply": f"Error: {e}"}
     
-    async def run_evaluation(self, prompts_file="prompts.csv", results_file=None, resume=False):
-        """Run the complete evaluation pipeline"""
-        print("Starting GrokEval v0...")
+    async def run_automation(self, prompts_file="prompts.csv", results_file=None, resume=False):
+        """Run the complete automation pipeline"""
+        print("Starting GrokAutomation v0...")
         
         # Generate results filename if not provided
         if results_file is None:
@@ -469,6 +465,13 @@ class GrokEvaluator:
             df = pd.read_csv(prompts_file)
             print(f"Loaded {len(df)} prompts")
             
+            # Validate CSV columns
+            required_columns = ['id', 'text']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(f"Missing required columns in {prompts_file}: {missing_columns}")
+            print(f"CSV validation passed")
+            
             # Filter out already completed prompts if resuming
             if completed_ids:
                 original_count = len(df)
@@ -489,7 +492,7 @@ class GrokEvaluator:
                 
                 # Progress display
                 progress = current_prompt / total_prompts
-                bar_length = 20
+                bar_length = self.config["progress_bar_length"]
                 filled_length = int(bar_length * progress)
                 bar = '█' * filled_length + '-' * (bar_length - filled_length)
                 
@@ -522,7 +525,7 @@ class GrokEvaluator:
                 print(f"Saved results to {results_file}")
             
             print(f"\n{'-'*60}")
-            print(f"EVALUATION COMPLETE")
+            print(f"AUTOMATION COMPLETE")
             print(f"Results saved to: {results_file}")
             print(f"Successfully processed: {len(self.results)}/{total_prompts} prompts")
             print(f"{'-'*60}")
@@ -530,7 +533,7 @@ class GrokEvaluator:
             return True
             
         except Exception as e:
-            print(f"Error during evaluation: {e}")
+            print(f"Error during automation: {e}")
             return False
             
         finally:
@@ -549,27 +552,27 @@ class GrokEvaluator:
 
 async def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description="GrokEval - Automated Grok voice testing")
+    parser = argparse.ArgumentParser(description="GrokAutomation - Automated Grok voice testing")
     parser.add_argument("--input", "-i", default="prompts.csv", help="Input CSV file with prompts (default: prompts.csv)")
     parser.add_argument("--output", "-o", help="Output CSV file for results (default: timestamped filename)")
     parser.add_argument("--resume", "-r", action="store_true", help="Resume from existing results file")
     
     args = parser.parse_args()
     
-    evaluator = GrokEvaluator()
+    automator = GrokAutomator()
     try:
-        success = await evaluator.run_evaluation(
+        success = await automator.run_automation(
             prompts_file=args.input,
             results_file=args.output,
             resume=args.resume
         )
         
         if success:
-            print("\nGrokEval completed successfully")
+            print("\nGrokAutomation completed successfully")
         else:
-            print("\nGrokEval failed - check Chrome connection and Grok login")
+            print("\nGrokAutomation failed - check Chrome connection and Grok login")
     finally:
-        await evaluator.cleanup()
+        await automator.cleanup()
 
 if __name__ == "__main__":
     asyncio.run(main())

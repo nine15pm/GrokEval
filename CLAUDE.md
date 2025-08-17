@@ -5,7 +5,7 @@ Automate Grok.com voice testing: read prompts from CSV, send via TTS to Grok voi
 1. Run `start_chrome_debug.bat` (starts Chrome with CDP on port 9222)
 2. Manually login to grok.com in Chrome browser (session persists)
 3. Set VB-Cable as default recording device for audio routing
-4. Run `python grokeval.py`
+4. Run `python grokautomation.py`
 
 ## CSV Format
 - **Input**: `prompts.csv` with columns `id,text`
