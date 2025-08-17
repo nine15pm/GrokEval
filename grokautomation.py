@@ -17,77 +17,12 @@ from datetime import datetime
 import argparse
 
 class GrokAutomator:
-    # Selector constants
-    VOICE_SELECTORS = [
-        "[aria-label*='voice']",
-        "[aria-label*='Voice']", 
-        "[data-testid*='voice']",
-        "button[title*='voice']",
-        "button[title*='Voice']",
-        ".voice-button",
-        "[class*='voice']"
-    ]
-    
-    TEXT_INPUT_SELECTORS = [
-        "textarea[placeholder*='Ask Grok']",
-        "textarea[placeholder*='Message']", 
-        "input[placeholder*='Ask Grok']",
-        "input[placeholder*='Message']",
-        "[contenteditable='true']",
-        "textarea",
-        "input[type='text']",
-        "[role='textbox']"
-    ]
-    
-    RESPONSE_SELECTORS = [
-        ".response-content-markdown",
-        ".message-bubble",
-        "[class*='message-bubble']",
-        "[class*='response-content']",
-        ".message.assistant",
-        "[class*='message'][class*='assistant']",
-        "[data-role='assistant']",
-        ".response",
-        "[class*='response']"
-    ]
-    
-    NEW_CHAT_SELECTORS = [
-        # Common patterns for new chat buttons
-        "[aria-label*='New chat']",
-        "[aria-label*='New conversation']",
-        "[aria-label*='Start new']",
-        "[aria-label*='new chat']",
-        "[aria-label*='new conversation']",
-        "button[title*='New chat']",
-        "button[title*='New conversation']",
-        "button[title*='new chat']",
-        "[data-testid*='new-chat']",
-        "[data-testid*='new-conversation']",
-        "[data-testid*='newchat']",
-        # Class-based selectors
-        ".new-chat-button",
-        ".new-conversation-button",
-        ".newchat-button",
-        "[class*='new-chat']",
-        "[class*='new-conversation']",
-        "[class*='newchat']",
-        # Text-based selectors
-        "button:has-text('New chat')",
-        "button:has-text('New Chat')",
-        "button:has-text('New')",
-        "button:has-text('Start')",
-        "[role='button']:has-text('New')",
-        "[role='button']:has-text('Start')",
-        # Plus icon buttons (common for new chat)
-        "button[aria-label*='+']",
-        "button:has([data-icon='plus'])",
-        "button svg[data-icon='plus']",
-        # Generic buttons that might be new chat
-        "button[class*='primary']",
-        "button[class*='compose']",
-        "a[href='/']",
-        "a[href='https://grok.com']"
-    ]
+    # Proven selectors from UI discovery JSON files
+    VOICE_SELECTOR = "[aria-label*='voice']"
+    TEXT_INPUT_SELECTOR = "[contenteditable='true']"
+    RESPONSE_SELECTOR = "[class*='message']"
+    NEW_CHAT_SELECTOR = "a[href='/']"
+    ERROR_SELECTOR = "[role='alert']"
 
     def __init__(self):
         self.browser = None
@@ -109,7 +44,13 @@ class GrokAutomator:
             "required_stable_checks": 3,
             "progress_bar_length": 20,
             "stabilization_check_interval": 1.0,
-            "element_search_interval": 0.5
+            "element_search_interval": 0.5,
+            # Retry and error handling configuration
+            "max_retries": 3,
+            "retry_delay": 2,
+            "state_check_timeout": 10,
+            "voice_button_timeout": 15,
+            "ui_transition_timeout": 20
         }
         
         try:
@@ -126,34 +67,49 @@ class GrokAutomator:
         
         return default_config
     
-    async def find_clickable_element(self, selectors, description="element"):
-        """Helper method to find and return the first clickable element from selector list"""
-        print(f"Looking for {description}...")
-        
-        for selector in selectors:
-            try:
-                count = await self.grok_page.locator(selector).count()
-                if count > 0:
-                    element = self.grok_page.locator(selector).first
-                    is_visible = await element.is_visible()
-                    is_enabled = await element.is_enabled()
-                    
-                    if is_visible and is_enabled:
-                        print(f"Found {description}: {selector}")
-                        return element
-                        
-            except Exception as e:
-                print(f"Error testing {description} selector {selector}: {e}")
-        
+    async def find_element(self, selector, description="element"):
+        """Find and return element by selector"""
+        try:
+            element = self.grok_page.locator(selector).first
+            if await element.is_visible() and await element.is_enabled():
+                print(f"Found {description}")
+                return element
+        except Exception as e:
+            print(f"Error finding {description}: {e}")
         print(f"{description.capitalize()} not found")
         return None
+    
+    async def detect_ui_errors(self):
+        """Detect if there are any error messages in the UI"""
+        try:
+            elements = await self.grok_page.locator(self.ERROR_SELECTOR).all()
+            for element in elements:
+                if await element.is_visible():
+                    error_text = await element.inner_text()
+                    if error_text.strip() and "grok" not in error_text.lower():
+                        return error_text.strip()
+        except Exception:
+            pass
+        return None
+    
+    async def has_messages(self):
+        """Check if page has messages (thread view)"""
+        try:
+            count = await self.grok_page.locator(self.RESPONSE_SELECTOR).count()
+            return count > 0
+        except Exception:
+            return False
+    
+    async def is_new_conversation(self):
+        """Check if we're in new conversation state (no messages)"""
+        return not await self.has_messages()
     
     def load_existing_results(self, results_file):
         """Load existing results to enable resume functionality"""
         completed_ids = set()
         if os.path.exists(results_file):
             try:
-                existing_df = pd.read_csv(results_file)
+                existing_df = pd.read_csv(results_file, encoding='utf-8')
                 completed_ids = set(existing_df['id'].tolist())
                 print(f"Found {len(completed_ids)} already completed prompts in {results_file}")
             except Exception as e:
@@ -165,54 +121,167 @@ class GrokAutomator:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
         return f"{base_name}_{timestamp}.csv"
         
-    async def connect_to_chrome(self):
-        """Connect to Chrome browser via CDP"""
-        try:
-            print("Connecting to Chrome via CDP...")
-            self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.connect_over_cdp(f"http://localhost:{self.config['chrome_port']}")
-            
-            # Get existing contexts and find Grok tab
-            contexts = self.browser.contexts
-            if not contexts:
-                raise Exception("No browser contexts found")
-                
-            context = contexts[0]
-            pages = context.pages
-            
-            # Find existing Grok tab or create new one
-            self.grok_page = None
-            for page in pages:
-                if "grok.com" in page.url:
-                    self.grok_page = page
-                    break
-            
-            if not self.grok_page:
-                print("No Grok tab found, creating new one...")
-                self.grok_page = await context.new_page()
-                await self.grok_page.goto("https://grok.com")
-                await self.grok_page.wait_for_load_state("networkidle")
-            else:
-                print("Using existing Grok tab")
-                await self.grok_page.bring_to_front()
-            
-            print("Chrome connection established successfully")
-            return True
-            
-        except Exception as e:
-            print(f"Failed to connect to Chrome: {e}")
-            print("Make sure Chrome is running with: start_chrome_debug.bat")
-            return False
-    
-    async def find_voice_button(self):
-        """Find and click the voice button to enable voice mode"""
-        element = await self.find_clickable_element(self.VOICE_SELECTORS, "voice button")
-        if element:
-            await element.click()
-            await asyncio.sleep(self.config["audio_wait_seconds"])
-            return True
+    async def connect_to_chrome_with_retry(self):
+        """Connect to Chrome browser via CDP with retry logic"""
+        max_retries = self.config["max_retries"]
+        retry_delay = self.config["retry_delay"]
         
-        print("Voice button not found - trying text input instead")
+        for attempt in range(max_retries):
+            try:
+                print(f"Connecting to Chrome via CDP (attempt {attempt + 1}/{max_retries})...")
+                self.playwright = await async_playwright().start()
+                
+                # Add timeout for CDP connection
+                try:
+                    self.browser = await asyncio.wait_for(
+                        self.playwright.chromium.connect_over_cdp(f"http://localhost:{self.config['chrome_port']}"),
+                        timeout=10
+                    )
+                except asyncio.TimeoutError:
+                    raise Exception("CDP connection timeout - is Chrome running with debug port?")
+                
+                # Get existing contexts and find Grok tab
+                contexts = self.browser.contexts
+                if not contexts:
+                    raise Exception("No browser contexts found")
+                    
+                context = contexts[0]
+                pages = context.pages
+                
+                # Find existing Grok tab or create new one
+                self.grok_page = None
+                for page in pages:
+                    try:
+                        if "grok.com" in page.url:
+                            self.grok_page = page
+                            break
+                    except Exception as e:
+                        print(f"Error checking page URL: {e}")
+                        continue
+                
+                if not self.grok_page:
+                    print("No Grok tab found, creating new one...")
+                    self.grok_page = await context.new_page()
+                    
+                    # Navigate with timeout and retry
+                    navigation_success = False
+                    for nav_attempt in range(3):
+                        try:
+                            await asyncio.wait_for(
+                                self.grok_page.goto("https://grok.com", wait_until="domcontentloaded"),
+                                timeout=30
+                            )
+                            await asyncio.wait_for(
+                                self.grok_page.wait_for_load_state("networkidle", timeout=30000),
+                                timeout=35
+                            )
+                            navigation_success = True
+                            break
+                        except asyncio.TimeoutError:
+                            print(f"Navigation timeout on attempt {nav_attempt + 1}")
+                            if nav_attempt < 2:
+                                await asyncio.sleep(5)
+                                continue
+                            else:
+                                raise Exception("Navigation to grok.com timed out")
+                        except Exception as e:
+                            print(f"Navigation error on attempt {nav_attempt + 1}: {e}")
+                            if nav_attempt < 2:
+                                await asyncio.sleep(5)
+                                continue
+                            else:
+                                raise
+                    
+                    if not navigation_success:
+                        raise Exception("Failed to navigate to grok.com")
+                        
+                else:
+                    print("Using existing Grok tab")
+                    try:
+                        await self.grok_page.bring_to_front()
+                        # Check if page is responsive
+                        await asyncio.wait_for(
+                            self.grok_page.evaluate("() => document.readyState"),
+                            timeout=5
+                        )
+                    except Exception as e:
+                        print(f"Existing tab seems unresponsive: {e}")
+                        print("Creating new tab...")
+                        self.grok_page = await context.new_page()
+                        await asyncio.wait_for(
+                            self.grok_page.goto("https://grok.com", wait_until="domcontentloaded"),
+                            timeout=30
+                        )
+                        await asyncio.wait_for(
+                            self.grok_page.wait_for_load_state("networkidle", timeout=30000),
+                            timeout=35
+                        )
+                
+                # Set page timeouts
+                self.grok_page.set_default_timeout(30000)
+                self.grok_page.set_default_navigation_timeout(30000)
+                
+                print("Chrome connection established successfully")
+                return True
+                
+            except Exception as e:
+                print(f"Failed to connect to Chrome (attempt {attempt + 1}): {e}")
+                
+                # Cleanup on failed attempt
+                try:
+                    if self.browser:
+                        await self.browser.close()
+                    if self.playwright:
+                        await self.playwright.stop()
+                except:
+                    pass
+                
+                self.browser = None
+                self.playwright = None
+                self.grok_page = None
+                
+                if attempt < max_retries - 1:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    print("\nTroubleshooting tips:")
+                    print("1. Make sure Chrome is running with: start_chrome_debug.bat")
+                    print("2. Check if port 9222 is available")
+                    print("3. Try closing and restarting Chrome")
+                    print("4. Make sure you're logged into grok.com")
+                    return False
+        
+        return False
+    
+    async def try_voice_mode(self):
+        """Try to activate voice mode with error checking"""
+        for attempt in range(self.config["max_retries"]):
+            element = await self.find_element(self.VOICE_SELECTOR, "voice button")
+            if element:
+                try:
+                    await element.click()
+                    await asyncio.sleep(self.config["audio_wait_seconds"])
+                    
+                    # Check for errors after clicking
+                    error_msg = await self.detect_ui_errors()
+                    if error_msg:
+                        print(f"Voice mode error: {error_msg}")
+                        if attempt < self.config["max_retries"] - 1:
+                            await asyncio.sleep(self.config["retry_delay"])
+                            continue
+                        return False
+                    
+                    print("Voice mode activated")
+                    return True
+                except Exception as e:
+                    print(f"Voice button click failed: {e}")
+                    if attempt < self.config["max_retries"] - 1:
+                        await asyncio.sleep(self.config["retry_delay"])
+                        continue
+            else:
+                if attempt < self.config["max_retries"] - 1:
+                    await asyncio.sleep(self.config["retry_delay"])
+                    continue
         return False
     
     async def generate_and_stream_tts(self, text):
@@ -249,197 +318,215 @@ class GrokAutomator:
                 os.unlink(tmp_path)
     
     async def send_text_input(self, text):
-        """Fallback: send text input directly"""
-        element = await self.find_clickable_element(self.TEXT_INPUT_SELECTORS, "text input element")
-        if element:
-            await element.click()
-            await asyncio.sleep(0.5)
-            await element.fill("")
-            await asyncio.sleep(0.5)
-            await element.type(text, delay=50)
-            await asyncio.sleep(1)
-            
-            # Submit the message
-            await self.grok_page.keyboard.press("Enter")
-            return True
-        
-        print("No suitable input element found")
+        """Send text input with retry logic"""
+        for attempt in range(self.config["max_retries"]):
+            element = await self.find_element(self.TEXT_INPUT_SELECTOR, "text input")
+            if element:
+                try:
+                    await element.click()
+                    await element.fill(text)
+                    await self.grok_page.keyboard.press("Enter")
+                    
+                    # Brief wait and error check
+                    await asyncio.sleep(1)
+                    error_msg = await self.detect_ui_errors()
+                    if error_msg:
+                        print(f"Text input error: {error_msg}")
+                        if attempt < self.config["max_retries"] - 1:
+                            await asyncio.sleep(self.config["retry_delay"])
+                            continue
+                        return False
+                    
+                    print("Text input sent")
+                    return True
+                except Exception as e:
+                    print(f"Text input failed: {e}")
+                    if attempt < self.config["max_retries"] - 1:
+                        await asyncio.sleep(self.config["retry_delay"])
+                        continue
+            else:
+                if attempt < self.config["max_retries"] - 1:
+                    await asyncio.sleep(self.config["retry_delay"])
+                    continue
         return False
     
-    async def get_latest_response_text(self):
-        """Helper method to extract latest response text"""
-        for selector in self.RESPONSE_SELECTORS:
-            try:
-                elements = await self.grok_page.locator(selector).all()
-                if elements:
-                    last_response = elements[-1]
-                    text = await last_response.inner_text()
-                    if text.strip():
-                        return text
-            except Exception:
-                continue
+    async def get_latest_response(self):
+        """Get latest response text"""
+        try:
+            elements = await self.grok_page.locator(self.RESPONSE_SELECTOR).all()
+            if elements:
+                last_response = elements[-1]
+                text = await last_response.inner_text()
+                return text.strip() if text else ""
+        except Exception:
+            pass
         return ""
     
     async def wait_for_response(self, timeout=None):
-        """Wait for Grok text response to appear and stabilize"""
+        """Wait for Grok response with comprehensive error handling"""
         if timeout is None:
             timeout = self.config["response_timeout"]
-        print("Waiting for Grok response...")
         
-        try:
-            # Wait for initial response to appear
-            response_found = False
-            start_time = asyncio.get_event_loop().time()
+        print("Waiting for response...")
+        start_time = asyncio.get_event_loop().time()
+        last_text = ""
+        stable_count = 0
+        response_started = False
+        
+        while (asyncio.get_event_loop().time() - start_time) < timeout:
+            # Check for UI errors
+            error_msg = await self.detect_ui_errors()
+            if error_msg and "grok" not in error_msg.lower():
+                # Rate limit detection
+                if "rate limit" in error_msg.lower() or "too many" in error_msg.lower():
+                    print("Rate limit detected, waiting...")
+                    await asyncio.sleep(30)
+                    continue
+                return f"Error: {error_msg}"
             
-            while not response_found and (asyncio.get_event_loop().time() - start_time) < timeout:
-                response_text = await self.get_latest_response_text()
-                if response_text and len(response_text.strip()) > self.config["min_response_length"]:
-                    print(f"Response detected")
-                    response_found = True
-                    break
-                
-                await asyncio.sleep(self.config["element_search_interval"])
+            # Check if we're still in the right state
+            if not await self.has_messages() and response_started:
+                return "Error: Lost thread view during response"
             
-            if not response_found:
-                print("No response detected within timeout")
-                return "Error: No response detected"
+            current_text = await self.get_latest_response()
             
-            # Monitor text stabilization (when text stops changing)
-            print("Monitoring text stabilization...")
-            last_text = ""
-            stable_count = 0
-            required_stable_checks = self.config["required_stable_checks"]
-            
-            while stable_count < required_stable_checks:
-                current_text = await self.get_latest_response_text()
-                
-                # Check if text has stabilized
-                if current_text == last_text and len(current_text.strip()) > self.config["min_response_length"]:
+            if current_text and len(current_text) > self.config["min_response_length"]:
+                response_started = True
+                if current_text == last_text:
                     stable_count += 1
-                    print(f"Text stable ({stable_count}/{required_stable_checks})")
+                    if stable_count >= self.config["required_stable_checks"]:
+                        print(f"Response captured: {len(current_text)} chars")
+                        return current_text
                 else:
                     stable_count = 0
-                    if len(current_text) > len(last_text):
-                        print(f"Text growing: {len(current_text)} chars")
-                
-                last_text = current_text
-                await asyncio.sleep(self.config["stabilization_check_interval"])
+                    last_text = current_text
+                    print(f"Response growing: {len(current_text)} chars")
             
-            print(f"Response stabilized! Captured {len(last_text)} characters")
-            print(f"Preview: {last_text[:100]}...")
-            return last_text.strip()
-            
-        except Exception as e:
-            print(f"Error waiting for response: {e}")
-            return "Error: Response capture failed"
+            await asyncio.sleep(self.config["stabilization_check_interval"])
+        
+        # Timeout handling
+        if last_text and len(last_text) > self.config["min_response_length"]:
+            print("Timeout reached, returning partial response")
+            return last_text
+        
+        return "Error: No response received within timeout"
     
     async def start_new_conversation(self):
-        """Start a new conversation by finding and clicking the new chat button"""
-        print("Starting new conversation...")
+        """Start a new conversation with retry and validation"""
+        if await self.is_new_conversation():
+            print("Already in new conversation")
+            return True
         
-        # First check current URL to understand context
-        current_url = self.grok_page.url
-        print(f"Current URL: {current_url}")
+        # Try new chat button first
+        for attempt in range(self.config["max_retries"]):
+            element = await self.find_element(self.NEW_CHAT_SELECTOR, "new chat button")
+            if element:
+                try:
+                    await element.click()
+                    await asyncio.sleep(self.config["new_conversation_wait"])
+                    
+                    if await self.is_new_conversation():
+                        print("Started new conversation")
+                        return True
+                    
+                    # Check if URL changed (alternative success indicator)
+                    if self.grok_page.url in ["https://grok.com", "https://grok.com/"]:
+                        print("Navigated to main page")
+                        return True
+                        
+                except Exception as e:
+                    print(f"New chat button failed: {e}")
+            
+            if attempt < self.config["max_retries"] - 1:
+                await asyncio.sleep(self.config["retry_delay"])
         
-        # Try to find and click new chat button
-        for selector in self.NEW_CHAT_SELECTORS:
+        # Fallback: direct navigation
+        print("Trying direct navigation...")
+        for attempt in range(2):  # Fewer retries for navigation
             try:
-                elements = await self.grok_page.locator(selector).all()
-                if elements:
-                    for element in elements:
-                        try:
-                            is_visible = await element.is_visible()
-                            is_enabled = await element.is_enabled()
-                            
-                            if is_visible and is_enabled:
-                                # Get element text/aria-label for better identification
-                                text_content = ""
-                                try:
-                                    text_content = await element.inner_text()
-                                    if not text_content:
-                                        text_content = await element.get_attribute("aria-label") or ""
-                                except:
-                                    pass
-                                
-                                print(f"Trying element: {selector} (text: '{text_content}')")
-                                await element.click()
-                                await asyncio.sleep(3)  # Wait for navigation/loading
-                                
-                                # Check if URL changed or new conversation started
-                                new_url = self.grok_page.url
-                                if new_url != current_url or new_url == "https://grok.com" or new_url == "https://grok.com/":
-                                    print(f"Successfully started new conversation - URL: {new_url}")
-                                    return True
-                                    
-                        except Exception as e:
-                            print(f"Error clicking element {selector}: {e}")
-                            continue
-                            
+                await self.grok_page.goto("https://grok.com")
+                await self.grok_page.wait_for_load_state("networkidle")
+                await asyncio.sleep(2)
+                
+                if await self.is_new_conversation():
+                    print("Navigation successful")
+                    return True
+                    
             except Exception as e:
-                print(f"Error processing selector {selector}: {e}")
-                continue
-        
-        # Alternative: navigate directly to main grok page
-        print("New chat button not found, navigating to main page...")
-        try:
-            await self.grok_page.goto("https://grok.com")
-            await self.grok_page.wait_for_load_state("networkidle")
-            await asyncio.sleep(3)
-            print(f"Navigated to main page - URL: {self.grok_page.url}")
-            return True
-        except Exception as e:
-            print(f"Error navigating to main page: {e}")
-        
-        # Last resort: try page refresh
-        print("Trying page refresh...")
-        try:
-            await self.grok_page.reload()
-            await self.grok_page.wait_for_load_state("networkidle")
-            await asyncio.sleep(2)
-            print("Page refreshed")
-            return True
-        except Exception as e:
-            print(f"Page refresh failed: {e}")
+                print(f"Navigation attempt {attempt + 1} failed: {e}")
+                if attempt == 0:
+                    await asyncio.sleep(3)
         
         print("Warning: Could not start new conversation")
         return False
     
     async def process_prompt(self, prompt_id, prompt_text):
-        """Process a single prompt through the voice pipeline"""
-        print(f"Processing prompt ID: {prompt_id}")
+        """Process a single prompt with comprehensive error recovery"""
+        print(f"Processing prompt {prompt_id}: {prompt_text[:50]}...")
         
-        try:
-            # Try voice mode first
-            voice_mode_activated = await self.find_voice_button()
-            
-            if voice_mode_activated:
-                # Use voice input
-                success = await self.generate_and_stream_tts(prompt_text)
-                if not success:
-                    print("TTS failed, falling back to text input")
-                    success = await self.send_text_input(prompt_text)
-            else:
-                # Use text input as fallback
-                success = await self.send_text_input(prompt_text)
-            
-            if not success:
-                return {"id": prompt_id, "prompt": prompt_text, "grok_reply": "Error: Failed to send input"}
-            
-            # Wait for and capture response
-            response = await self.wait_for_response()
-            
-            result = {
-                "id": prompt_id,
-                "prompt": prompt_text, 
-                "grok_reply": response
-            }
-            
-            print(f"Completed prompt {prompt_id}")
-            return result
-            
-        except Exception as e:
-            print(f"Error processing prompt {prompt_id}: {e}")
-            return {"id": prompt_id, "prompt": prompt_text, "grok_reply": f"Error: {e}"}
+        for attempt in range(self.config["max_retries"]):
+            try:
+                # Check for persistent UI errors
+                error_msg = await self.detect_ui_errors()
+                if error_msg and "grok" not in error_msg.lower():
+                    print(f"Pre-prompt UI error: {error_msg}")
+                    if attempt < self.config["max_retries"] - 1:
+                        await self.grok_page.reload()
+                        await self.grok_page.wait_for_load_state("networkidle")
+                        await asyncio.sleep(2)
+                        continue
+                    return {"id": prompt_id, "prompt": prompt_text, "grok_reply": f"Error: Persistent UI error - {error_msg}"}
+                
+                # Ensure new conversation
+                if not await self.start_new_conversation():
+                    if attempt < self.config["max_retries"] - 1:
+                        print("Retrying new conversation...")
+                        await asyncio.sleep(self.config["retry_delay"])
+                        continue
+                    return {"id": prompt_id, "prompt": prompt_text, "grok_reply": "Error: Could not start new conversation"}
+                
+                # Try voice mode first, fallback to text
+                input_success = False
+                if await self.try_voice_mode():
+                    input_success = await self.generate_and_stream_tts(prompt_text)
+                    if not input_success:
+                        print("TTS failed, falling back to text")
+                        input_success = await self.send_text_input(prompt_text)
+                else:
+                    input_success = await self.send_text_input(prompt_text)
+                
+                if not input_success:
+                    if attempt < self.config["max_retries"] - 1:
+                        print("Input failed, retrying...")
+                        await asyncio.sleep(self.config["retry_delay"])
+                        continue
+                    return {"id": prompt_id, "prompt": prompt_text, "grok_reply": "Error: Failed to send input after retries"}
+                
+                # Wait for response
+                response = await self.wait_for_response()
+                
+                # Validate response
+                if response.startswith("Error:"):
+                    if attempt < self.config["max_retries"] - 1:
+                        print(f"Response error, retrying: {response}")
+                        await asyncio.sleep(self.config["retry_delay"])
+                        continue
+                
+                print(f"Completed prompt {prompt_id}")
+                return {
+                    "id": prompt_id,
+                    "prompt": prompt_text,
+                    "grok_reply": response
+                }
+                
+            except Exception as e:
+                print(f"Error processing prompt {prompt_id} (attempt {attempt + 1}): {e}")
+                if attempt < self.config["max_retries"] - 1:
+                    await asyncio.sleep(self.config["retry_delay"])
+                    continue
+        
+        return {"id": prompt_id, "prompt": prompt_text, "grok_reply": f"Error: Failed after {self.config['max_retries']} attempts"}
+    
     
     async def run_automation(self, prompts_file="prompts.csv", results_file=None, resume=False):
         """Run the complete automation pipeline"""
@@ -455,14 +542,14 @@ class GrokAutomator:
         if resume:
             completed_ids = self.load_existing_results(results_file)
         
-        # Connect to Chrome
-        if not await self.connect_to_chrome():
+        # Connect to Chrome with retry logic
+        if not await self.connect_to_chrome_with_retry():
             return False
         
         try:
             # Load prompts
             print(f"Loading prompts from {prompts_file}")
-            df = pd.read_csv(prompts_file)
+            df = pd.read_csv(prompts_file, encoding='utf-8')
             print(f"Loaded {len(df)} prompts")
             
             # Validate CSV columns
@@ -494,7 +581,7 @@ class GrokAutomator:
                 progress = current_prompt / total_prompts
                 bar_length = self.config["progress_bar_length"]
                 filled_length = int(bar_length * progress)
-                bar = '█' * filled_length + '-' * (bar_length - filled_length)
+                bar = '#' * filled_length + '-' * (bar_length - filled_length)
                 
                 print(f"\n{'-'*60}")
                 print(f"PROMPT {current_prompt}/{total_prompts} | ID: {row['id']} | {remaining} remaining")
@@ -505,23 +592,21 @@ class GrokAutomator:
                 result = await self.process_prompt(row['id'], row['text'])
                 self.results.append(result)
                 
-                # Start new conversation for next prompt
-                if index < len(df) - 1:  # Not the last prompt
-                    print(f"\nStarting new conversation for next prompt...")
-                    await self.start_new_conversation()
-                    await asyncio.sleep(self.config["new_conversation_wait"])  # Allow UI to settle
+                # Prepare for next prompt (handled in process_prompt)
+                if index < len(df) - 1:
+                    await asyncio.sleep(1)  # Brief pause between prompts
             
             # Save results
             results_df = pd.DataFrame(self.results)
             
             # If resuming and file exists, append new results
             if resume and os.path.exists(results_file) and completed_ids:
-                existing_df = pd.read_csv(results_file)
+                existing_df = pd.read_csv(results_file, encoding='utf-8')
                 combined_df = pd.concat([existing_df, results_df], ignore_index=True)
-                combined_df.to_csv(results_file, index=False)
+                combined_df.to_csv(results_file, index=False, encoding='utf-8')
                 print(f"Appended {len(results_df)} new results to {results_file}")
             else:
-                results_df.to_csv(results_file, index=False)
+                results_df.to_csv(results_file, index=False, encoding='utf-8')
                 print(f"Saved results to {results_file}")
             
             print(f"\n{'-'*60}")

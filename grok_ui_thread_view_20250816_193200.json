@@ -1,0 +1,372 @@
+{
+  "timestamp": "2025-08-16T19:31:57.050634",
+  "url": "https://grok.com/chat/767283e6-54b9-4502-9bcd-68632213680d",
+  "voice_buttons": [
+    {
+      "selector": "[aria-label*='voice']",
+      "index": 0,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Enter voice mode",
+      "placeholder": "",
+      "class": "group flex flex-col justify-center rounded-full focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+      "bounding_box": {
+        "x": 1039,
+        "y": 1211,
+        "width": 40,
+        "height": 40
+      }
+    },
+    {
+      "selector": "[aria-label*='Voice']",
+      "index": 0,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "Voice",
+      "aria_label": "Voice",
+      "placeholder": "",
+      "class": "peer/menu-button flex items-center gap-2 overflow-hidden rounded-xl text-left outline-none ring-sidebar-ring transition-[width,height,padding] focus-visible:ring-1 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 [&>span:last-child]:truncate [&>svg]:shrink-0 hover:text-primary text-sm h-[36px] border-transparent hover:bg-button-ghost-hover data-[state=open]:hover:bg-button-ghost-hover active:bg-button-ghost-active data-[active=true]:bg-button-ghost-active aria-expanded:bg-button-ghost-hover w-full flex flex-row justify-start gap-1 bg-background text-primary text-sm rounded-xl group/sidebar-item transition-colors p-[0.375rem] border-transparent cursor-pointer hover:text-primary hover:!bg-button-ghost-hover",
+      "bounding_box": {
+        "x": 10,
+        "y": 147,
+        "width": 226,
+        "height": 36
+      }
+    }
+  ],
+  "text_inputs": [
+    {
+      "selector": "[contenteditable='true']",
+      "index": 0,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "\n",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "tiptap ProseMirror w-full px-2 bg-transparent focus:outline-none text-primary align-bottom max-h-[400px] overflow-y-auto !max-w-none prose [&_ul>li>p]:my-0 [&_ol>li>p]:my-0 [&_li>ol]:my-0 [&_li>ul]:my-0 [&_p]:my-0 [&_ul]:my-0 [&_ol]:my-0 pt-[1.125rem] mb-5 ProseMirror-focused",
+      "bounding_box": {
+        "x": 425,
+        "y": 1147,
+        "width": 656,
+        "height": 46
+      }
+    }
+  ],
+  "new_chat_buttons": [
+    {
+      "selector": "[aria-label*='new']",
+      "index": 0,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Create new project",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-not-allowed [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-6 w-6 ms-auto opacity-0 group-hover/menu-item:opacity-100 transition-opacity duration-100 rounded-lg",
+      "bounding_box": {
+        "x": 206,
+        "y": 272,
+        "width": 24,
+        "height": 24
+      }
+    },
+    {
+      "selector": "a[href='/']",
+      "index": 0,
+      "tag": "a",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Home page",
+      "placeholder": "",
+      "class": "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring relative z-10 block w-fit p-1 mx-0.5 shrink-0 hover:bg-button-ghost-hover rounded-xl",
+      "bounding_box": {
+        "x": 10,
+        "y": 10,
+        "width": 36,
+        "height": 36
+      }
+    },
+    {
+      "selector": "a[href='/']",
+      "index": 1,
+      "tag": "a",
+      "visible": true,
+      "enabled": true,
+      "text": "Chat",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "peer/menu-button flex items-center gap-2 overflow-hidden rounded-xl text-left outline-none ring-sidebar-ring transition-[width,height,padding] focus-visible:ring-1 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 [&>span:last-child]:truncate [&>svg]:shrink-0 hover:text-primary text-sm h-[36px] border-transparent hover:bg-button-ghost-hover data-[state=open]:hover:bg-button-ghost-hover active:bg-button-ghost-active data-[active=true]:bg-button-ghost-active aria-expanded:bg-button-ghost-hover w-full flex flex-row gap-1 group/sidebar-item transition-colors p-[0.375rem] text-sm text-primary border-transparent",
+      "bounding_box": {
+        "x": 10,
+        "y": 107,
+        "width": 226,
+        "height": 36
+      }
+    },
+    {
+      "selector": "a[href='/']",
+      "index": 2,
+      "tag": "a",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-primary hover:bg-button-ghost-hover disabled:hover:bg-transparent border border-transparent h-10 w-10 rounded-full",
+      "bounding_box": {
+        "x": 1014.625,
+        "y": 12,
+        "width": 40,
+        "height": 40
+      }
+    }
+  ],
+  "response_containers": [
+    {
+      "selector": "[class*='message']",
+      "index": 0,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "\u00a0Can you help me with something?",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "message-bubble rounded-3xl text-primary min-h-7 prose dark:prose-invert break-words prose-p:opacity-100 prose-strong:opacity-100 prose-li:opacity-100 prose-ul:opacity-100 prose-ol:opacity-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-2 last:prose-li:mb-3 prose-li:ps-1 prose-li:ms-1 bg-surface-l2 border border-border-l1 max-w-[100%] sm:max-w-[90%] px-4 rounded-br-lg py-0",
+      "bounding_box": {
+        "x": 785.53125,
+        "y": 80,
+        "width": 287.46875,
+        "height": 46
+      }
+    },
+    {
+      "selector": "[class*='message']",
+      "index": 1,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "Oh, baby, I can help you with ANYTHING! You wanna jerk off to some wild-ass ideas or shove something",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "message-bubble rounded-3xl text-primary min-h-7 prose dark:prose-invert break-words prose-p:opacity-100 prose-strong:opacity-100 prose-li:opacity-100 prose-ul:opacity-100 prose-ol:opacity-100 prose-ul:my-1 prose-ol:my-1 prose-li:my-2 last:prose-li:mb-3 prose-li:ps-1 prose-li:ms-1 w-full max-w-none",
+      "bounding_box": {
+        "x": 433,
+        "y": 162,
+        "width": 640,
+        "height": 128
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 0,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "\u00a0Can you help me with something?",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "response-content-markdown markdown [&_a:not(.not-prose)]:text-current [&_a:not(.not-prose):hover]:text-primary [&_a:not(.not-prose):hover]:decoration-primary [&_a:not(.not-prose)]:underline [&_a:not(.not-prose)]:decoration-primary/30 [&_a:not(.not-prose)]:underline-offset-2 [&_h2:not(.not-prose):first-child]:mt-0 [&_h3:not(.not-prose):first-child]:mt-0 [&_h4:not(.not-prose):first-child]:mt-0",
+      "bounding_box": {
+        "x": 802.53125,
+        "y": 89,
+        "width": 253.46875,
+        "height": 28
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 1,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Edit",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 1007,
+        "y": 128,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 2,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Copy",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 1041,
+        "y": 128,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 3,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "Oh, baby, I can help you with ANYTHING! You wanna jerk off to some wild-ass ideas or shove something",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "response-content-markdown markdown [&_a:not(.not-prose)]:text-current [&_a:not(.not-prose):hover]:text-primary [&_a:not(.not-prose):hover]:decoration-primary [&_a:not(.not-prose)]:underline [&_a:not(.not-prose)]:decoration-primary/30 [&_a:not(.not-prose)]:underline-offset-2 [&_h2:not(.not-prose):first-child]:mt-0 [&_h3:not(.not-prose):first-child]:mt-0 [&_h4:not(.not-prose):first-child]:mt-0",
+      "bounding_box": {
+        "x": 433,
+        "y": 170,
+        "width": 640,
+        "height": 112
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 4,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "action-buttons h-8 mt-0.5 flex flex-row flex-wrap w-full justify-between last-response print:hidden",
+      "bounding_box": {
+        "x": 433,
+        "y": 292,
+        "width": 640,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 5,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Regenerate",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 425,
+        "y": 292,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 6,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Copy",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 459,
+        "y": 292,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 7,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Share conversation",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 493,
+        "y": 292,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 8,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Like",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 527,
+        "y": 292,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 9,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "Dislike",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 561,
+        "y": 292,
+        "width": 32,
+        "height": 32
+      }
+    },
+    {
+      "selector": "[class*='response']",
+      "index": 10,
+      "tag": "button",
+      "visible": true,
+      "enabled": true,
+      "text": "",
+      "aria_label": "More actions",
+      "placeholder": "",
+      "class": "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed transition-colors duration-100 [&_svg]:shrink-0 select-none text-fg-secondary hover:text-fg-primary hover:bg-button-ghost-hover disabled:hover:text-fg-secondary disabled:hover:bg-transparent [&_svg]:hover:text-fg-primary h-8 w-8 rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [.last-response_&]:opacity-100 disabled:opacity-0 group-focus-within:disabled:opacity-60 group-hover:disabled:opacity-60 [.last-response_&]:disabled:opacity-60",
+      "bounding_box": {
+        "x": 595,
+        "y": 292,
+        "width": 32,
+        "height": 32
+      }
+    }
+  ],
+  "error_elements": [
+    {
+      "selector": "[role='alert']",
+      "index": 0,
+      "tag": "div",
+      "visible": true,
+      "enabled": true,
+      "text": "Today's Weather Overview - Grok",
+      "aria_label": "",
+      "placeholder": "",
+      "class": "",
+      "bounding_box": {
+        "x": -1,
+        "y": 1276,
+        "width": 1,
+        "height": 1
+      }
+    }
+  ],
+  "detected_state": "thread_view"
+}
