@@ -10,6 +10,7 @@ CLAUDE.md
 # Browser data and debugging
 browser_data/
 chrome_debug_profile/
+grok_UI_info/
 
 # Results and runtime files
 *.csv
