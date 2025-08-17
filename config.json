@@ -1,0 +1,7 @@
+{
+    "chrome_port": 9222,
+    "response_timeout": 90,
+    "tts_voice": "en-US-JennyNeural",
+    "audio_wait_seconds": 2,
+    "new_conversation_wait": 3
+}
