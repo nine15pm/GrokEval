@@ -12,6 +12,6 @@ browser_data/
 chrome_debug_profile/
 
 # Results and runtime files
-results*.csv
+*.csv
 *.wav
 *.tmp
