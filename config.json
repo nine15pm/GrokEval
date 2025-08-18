@@ -1,7 +1,20 @@
 {
     "chrome_port": 9222,
-    "response_timeout": 90,
+    "max_response_chars": 1500,
+    "max_wait_time": 120,
     "tts_voice": "en-US-JennyNeural",
+    "tts_rate": "+30%",
     "audio_wait_seconds": 2,
-    "new_conversation_wait": 3
+    "transcription_wait_seconds": 2,
+    "new_conversation_wait": 2,
+    "min_response_length": 10,
+    "required_stable_checks": 3,
+    "progress_bar_length": 20,
+    "stabilization_check_interval": 3.0,
+    "element_search_interval": 1,
+    "max_retries": 3,
+    "retry_delay": 2,
+    "state_check_timeout": 10,
+    "voice_button_timeout": 15,
+    "ui_transition_timeout": 20
 }

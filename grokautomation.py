@@ -19,6 +19,7 @@ import argparse
 class GrokAutomator:
     # Proven selectors from UI discovery JSON files
     VOICE_SELECTOR = "[aria-label*='voice']"
+    EXIT_VOICE_SELECTOR = "[aria-label='Exit voice mode']"
     TEXT_INPUT_SELECTOR = "[contenteditable='true']"
     RESPONSE_SELECTOR = "[class*='message']"
     NEW_CHAT_SELECTOR = "a[href='/']"
@@ -32,40 +33,19 @@ class GrokAutomator:
         self.config = self.load_config()
     
     def load_config(self):
-        """Load configuration from config.json with fallback to defaults"""
-        default_config = {
-            "chrome_port": 9222,
-            "response_timeout": 90,
-            "tts_voice": "en-US-JennyNeural",
-            "audio_wait_seconds": 2,
-            "new_conversation_wait": 3,
-            # Magic number constants
-            "min_response_length": 10,
-            "required_stable_checks": 3,
-            "progress_bar_length": 20,
-            "stabilization_check_interval": 1.0,
-            "element_search_interval": 0.5,
-            # Retry and error handling configuration
-            "max_retries": 3,
-            "retry_delay": 2,
-            "state_check_timeout": 10,
-            "voice_button_timeout": 15,
-            "ui_transition_timeout": 20
-        }
-        
+        """Load configuration from config.json"""
         try:
             if os.path.exists("config.json"):
                 with open("config.json", "r") as f:
-                    user_config = json.load(f)
-                    # Merge user config with defaults
-                    default_config.update(user_config)
+                    config = json.load(f)
                     print(f"Loaded config from config.json")
+                    return config
             else:
-                print("No config.json found, using defaults")
+                raise FileNotFoundError("config.json not found")
         except Exception as e:
-            print(f"Error loading config.json: {e}, using defaults")
-        
-        return default_config
+            print(f"Error loading config.json: {e}")
+            print("Please create a config.json file with required parameters")
+            raise
     
     async def find_element(self, selector, description="element"):
         """Find and return element by selector"""
@@ -253,6 +233,27 @@ class GrokAutomator:
         
         return False
     
+    async def exit_voice_mode(self):
+        """Exit voice mode if currently active"""
+        for attempt in range(self.config["max_retries"]):
+            element = await self.find_element(self.EXIT_VOICE_SELECTOR, "exit voice button")
+            if element:
+                try:
+                    await element.click()
+                    await asyncio.sleep(2)  # Wait for voice mode to exit
+                    print("Exited voice mode")
+                    return True
+                except Exception as e:
+                    print(f"Exit voice button click failed: {e}")
+                    if attempt < self.config["max_retries"] - 1:
+                        await asyncio.sleep(self.config["retry_delay"])
+                        continue
+            else:
+                # No exit voice button found, likely not in voice mode
+                print("Not in voice mode or exit button not found")
+                return True
+        return False
+
     async def try_voice_mode(self):
         """Try to activate voice mode with error checking"""
         for attempt in range(self.config["max_retries"]):
@@ -294,7 +295,7 @@ class GrokAutomator:
         
         try:
             # Generate TTS audio using edge-tts
-            communicate = edge_tts.Communicate(text, self.config["tts_voice"])
+            communicate = edge_tts.Communicate(text, self.config["tts_voice"], rate=self.config["tts_rate"])
             await communicate.save(tmp_path)
             
             # Load audio data
@@ -305,7 +306,11 @@ class GrokAutomator:
             sd.play(data, samplerate)
             sd.wait()  # Wait for playback to complete
             
-            print("Audio streaming complete")
+            # Wait for Grok to finish transcribing the audio
+            print("Waiting for transcription to complete...")
+            await asyncio.sleep(self.config["transcription_wait_seconds"])
+            
+            print("TTS and transcription complete")
             return True
             
         except Exception as e:
@@ -362,18 +367,17 @@ class GrokAutomator:
             pass
         return ""
     
-    async def wait_for_response(self, timeout=None):
-        """Wait for Grok response with comprehensive error handling"""
-        if timeout is None:
-            timeout = self.config["response_timeout"]
-        
+    async def wait_for_response(self):
+        """Wait for Grok response with character limit instead of timeout"""
         print("Waiting for response...")
-        start_time = asyncio.get_event_loop().time()
         last_text = ""
         stable_count = 0
         response_started = False
+        max_chars = self.config["max_response_chars"]
+        max_wait_time = self.config["max_wait_time"]
+        start_time = asyncio.get_event_loop().time()
         
-        while (asyncio.get_event_loop().time() - start_time) < timeout:
+        while (asyncio.get_event_loop().time() - start_time) < max_wait_time:
             # Check for UI errors
             error_msg = await self.detect_ui_errors()
             if error_msg and "grok" not in error_msg.lower():
@@ -392,6 +396,12 @@ class GrokAutomator:
             
             if current_text and len(current_text) > self.config["min_response_length"]:
                 response_started = True
+                
+                # Check if we've hit the character limit
+                if len(current_text) >= max_chars:
+                    print(f"Character limit reached: {len(current_text)} chars, truncating")
+                    return current_text[:max_chars]
+                
                 if current_text == last_text:
                     stable_count += 1
                     if stable_count >= self.config["required_stable_checks"]:
@@ -404,12 +414,12 @@ class GrokAutomator:
             
             await asyncio.sleep(self.config["stabilization_check_interval"])
         
-        # Timeout handling
+        # Fallback timeout handling
         if last_text and len(last_text) > self.config["min_response_length"]:
-            print("Timeout reached, returning partial response")
-            return last_text
+            print("Max wait time reached, returning response")
+            return last_text[:max_chars] if len(last_text) > max_chars else last_text
         
-        return "Error: No response received within timeout"
+        return "Error: No response received"
     
     async def start_new_conversation(self):
         """Start a new conversation with retry and validation"""
@@ -512,6 +522,10 @@ class GrokAutomator:
                         await asyncio.sleep(self.config["retry_delay"])
                         continue
                 
+                # Exit voice mode after getting response, before moving to next prompt
+                print("Exiting voice mode after response...")
+                await self.exit_voice_mode()
+                
                 print(f"Completed prompt {prompt_id}")
                 return {
                     "id": prompt_id,
@@ -573,8 +587,8 @@ class GrokAutomator:
             self.results = []
             total_prompts = len(df)
             
-            for index, row in df.iterrows():
-                current_prompt = index + 1
+            for i, (index, row) in enumerate(df.iterrows()):
+                current_prompt = i + 1
                 remaining = total_prompts - current_prompt
                 
                 # Progress display
@@ -592,22 +606,20 @@ class GrokAutomator:
                 result = await self.process_prompt(row['id'], row['text'])
                 self.results.append(result)
                 
+                # Save each result immediately
+                result_df = pd.DataFrame([result])
+                if not os.path.exists(results_file):
+                    # Create file with header if it doesn't exist
+                    result_df.to_csv(results_file, index=False, encoding='utf-8')
+                else:
+                    # Append without header if file exists
+                    result_df.to_csv(results_file, mode='a', header=False, index=False, encoding='utf-8')
+                
                 # Prepare for next prompt (handled in process_prompt)
-                if index < len(df) - 1:
+                if i < len(df) - 1:
                     await asyncio.sleep(1)  # Brief pause between prompts
             
-            # Save results
-            results_df = pd.DataFrame(self.results)
-            
-            # If resuming and file exists, append new results
-            if resume and os.path.exists(results_file) and completed_ids:
-                existing_df = pd.read_csv(results_file, encoding='utf-8')
-                combined_df = pd.concat([existing_df, results_df], ignore_index=True)
-                combined_df.to_csv(results_file, index=False, encoding='utf-8')
-                print(f"Appended {len(results_df)} new results to {results_file}")
-            else:
-                results_df.to_csv(results_file, index=False, encoding='utf-8')
-                print(f"Saved results to {results_file}")
+            # Results are saved immediately after each prompt
             
             print(f"\n{'-'*60}")
             print(f"AUTOMATION COMPLETE")
